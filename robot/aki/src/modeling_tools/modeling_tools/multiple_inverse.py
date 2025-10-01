@@ -115,19 +115,12 @@ class MultiAprilTagPositionNode(Node):
         if (origin_tag_id, target_tag_id) in self.tag_transforms or (target_tag_id, origin_tag_id) in self.tag_transforms:
             return self.tag_transforms.get((origin_tag_id, target_tag_id)) or self.tag_transforms.get((target_tag_id, origin_tag_id))
         
-        self.get_logger().info(f"geht bis hier1")
 
         # Try to find an intermediate tag that already has a transform to the origin tag
         for intermediate_tag_id in range(1, 6):
             if intermediate_tag_id != origin_tag_id and intermediate_tag_id != target_tag_id:
                 # Check if the intermediate tag has a known transform to the origin tag
-                if (self.origin_tag_id, intermediate_tag_id) in self.tag_transforms:
-                    # Avoid infinite recursion by marking the intermediate tag as visited
-                    self.get_logger().info(f"geht bis hier2")
-                    if intermediate_tag_id in self.visited_tags:
-                        self.get_logger().info(f"geht bis hier3")
-                        continue
-                    
+                if (self.origin_tag_id, intermediate_tag_id) in self.tag_transforms: 
                     # Mark the intermediate tag as visited
                     self.visited_tags.add(intermediate_tag_id)
 

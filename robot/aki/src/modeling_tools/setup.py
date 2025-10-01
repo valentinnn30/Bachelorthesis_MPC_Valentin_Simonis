@@ -20,13 +20,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'transform_inverse = modeling_tools.transform_inverse:main',
             'multiple_inverse = modeling_tools.multiple_inverse:main',
-            'tag12transforms = modeling_tools.tag12transforms:main',
             'savetocsv = modeling_tools.savetocsv:main',
             'robotpos = modeling_tools.robotpos:main',
-            'robotpos2 = modeling_tools.robotpos2:main',
-
         ],
     },
 )

@@ -43,10 +43,6 @@ class RobotPositionPublisher(Node):
         self.camera_to_tag_transform = None
         self.origin_tag_id = 1  # Default origin tag ID
 
-        # Smoothing parameters
-        self.position_history = []  # History to store previous positions for smoothing
-        self.history_size = 5  # Number of previous positions to average
-        self.position_threshold = 0.1  # Minimum change required to update the position
 
     def tf_callback(self, msg):
         now = self.get_clock().now().nanoseconds / 1e9  # Current time in seconds
@@ -104,11 +100,8 @@ class RobotPositionPublisher(Node):
         robot_position_relative_to_origin = self.calculate_robot_position(
             transform_to_origin, robot_position_relative_to_tag)
 
-        # Apply smoothing (moving average)
-        smoothed_position = self.apply_smoothing(robot_position_relative_to_origin)
-
         # Publish the robot's position relative to the origin tag
-        self.publish_robot_transform(smoothed_position, robot_rotation_relative_to_origin, timestamp)
+        self.publish_robot_transform(robot_position_relative_to_origin, robot_rotation_relative_to_origin, timestamp)
 
     def inverse_transform(self, transform):
         """Inverse the transform from the camera to the tag to get the robot's position"""
@@ -153,17 +146,7 @@ class RobotPositionPublisher(Node):
         ])
         return matrix
 
-    def apply_smoothing(self, new_position):
-        """Smooth the robot's position using a moving average"""
-        self.position_history.append(new_position)
 
-        # Keep the history size fixed
-        if len(self.position_history) > self.history_size:
-            self.position_history.pop(0)
-
-        # Calculate the average position
-        smoothed_position = np.mean(self.position_history, axis=0)
-        return smoothed_position
 
     def publish_robot_transform(self, robot_position, robot_rotation, timestamp):
         """Publish the robot's position relative to the target tag"""

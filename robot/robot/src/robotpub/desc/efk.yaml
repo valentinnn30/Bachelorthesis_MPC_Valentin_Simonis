@@ -1,6 +1,0 @@
-ekf_filter_node:
-  ros__parameters:
-    frequency: 30.0  # Rate of filter execution
-
-    imu0: /imu/data  # IMU data topic
-  

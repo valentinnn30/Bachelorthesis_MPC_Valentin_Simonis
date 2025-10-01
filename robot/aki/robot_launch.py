@@ -66,22 +66,6 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # Node(
-        #     package='ros2_orb_slam3',
-        #     executable='mono_driver_node.py',
-        #     name='orb_slam_driver',
-        #     output='screen',
-        #     parameters=[{'settings_name': 'EuRoC', 'image_seq': 'sample_euroc_MH05'}]
-        # ),
-
- 	    # Node(
-        #     package='ros2_orb_slam3',
-        #     executable='mono_node_cpp',
-        #     name='orb_slam_core',
-        #     output='screen',
-        #     parameters=[{'node_name_arg': 'mono_slam_cpp'}]
-        # ),
-
         Node(
             package='nav_slam', 
             executable='path', 
@@ -110,20 +94,6 @@ def generate_launch_description():
             output='screen',
         ),  
 
-        #Locator
-
-        # Node(
-        #     package='nav_locator',  
-        #     executable='waterlinked',  
-        #     name='locator_waterlinked', 
-        #     output='screen',
-        # ), 
-        Node(
-            package='nav_locator',  
-            executable='pid',  
-            name='locator_pid', 
-            output='screen',
-        ), 
         ExecuteProcess(
             cmd=[
                 'ros2', 'run', 'apriltag_ros', 'apriltag_node',
