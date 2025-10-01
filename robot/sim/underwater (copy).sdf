@@ -1,0 +1,47 @@
+<sdf version='1.9'>
+  <world name='buoyant_tethys'>
+    <scene>
+      <ambient>0 1 1 1</ambient>
+      <background>0 0.7 0.8 1</background>
+      <shadows>true</shadows>
+    </scene>
+    <physics name='1ms' type='ode'>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+    
+   <plugin
+      filename="ignition-gazebo-sensors-system"
+      name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system"
+        name="gz::sim::systems::Imu">
+</plugin>
+    <plugin name='gz::sim::systems::Contact' filename='ignition-gazebo-contact-system'/>
+    <plugin name='ignition::gazebo::systems::Physics' filename='ignition-gazebo-physics-system'/>
+    <plugin name='ignition::gazebo::systems::UserCommands' filename='ignition-gazebo-user-commands-system'/>
+    <plugin name='ignition::gazebo::systems::SceneBroadcaster' filename='ignition-gazebo-scene-broadcaster-system'/>
+    <plugin name='ignition::gazebo::systems::Buoyancy' filename='ignition-gazebo-buoyancy-system'>
+      <uniform_fluid_density>1000</uniform_fluid_density>
+    </plugin>
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type='adiabatic'/>
+    <include>
+      <uri>file://own</uri>
+      <name>tethys</name>
+      <pose>1 -15 1 0 -0 -1.57</pose>
+    </include>
+ 
+ <include>
+      <uri>file://nist_maze_wall_120</uri>
+      <name>sub</name>
+
+
+    </include>
+
+
+  </world>
+</sdf>

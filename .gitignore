@@ -1,0 +1,15 @@
+robot/robot/src/GoDown/
+robot/robot/build/
+robot/robot/install/
+robot/robot/log/
+robot/aki/build/
+robot/aki/install/
+robot/aki/log/
+
+robot/robot/src/launch/__pycache__/robot_launch.cpython-310.pyc
+robot/robot/src/launch/__pycache__/sim_launch.cpython-310.pyc
+__pycache__/
+*.pyc
+robot/aki/src/launch/__pycache__/robot_launch.cpython-310.pyc
+robot/aki/src/launch/__pycache__/sim_launch.cpython-310.pyc
+*.db3

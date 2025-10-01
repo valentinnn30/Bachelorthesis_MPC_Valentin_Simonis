@@ -1,0 +1,29 @@
+# Save the file and rebuild the workspace
+cd /home/reefranger/Desktop/ReefRanger/robot/aki
+colcon build
+source install/setup.bash
+
+#Communication with STM
+ros2 run nav_tools STMcom 
+
+#Open Foxglove
+Choose STMcom View for STM communication
+
+#Feeding 
+Publish 10 on Foxglove for the feeding command and then instantly publish 0 to stop the feeding command
+
+#Slam 
+ros2 launch slam_launch.py
+#Activate Slam Action
+ros2 action send_goal activateslam slam_interface/action/ActivateSlam "{activate: True}"
+
+#Slam Action
+Works in SWARM pool so that we have 20s time after we start the action so we have time to move around the robot by hand to scan the whole table, after that the PID controller starts 
+
+#Depth Control with BCU in SLAM
+set self.declare_parameter('test_with_depth', False) to True in pid_test.py file in nav_slam 
+add STMcom to the slam_test.py launch file instead of nav_tools thrusters.py 
+
+
+
+

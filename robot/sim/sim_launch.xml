@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<launch xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xsi:noNamespaceSchemaLocation="http://raw.githubusercontent.com/ros/rosdistro/master/ros2launch/launch/launch.xsd">
+
+    <!-- Launch the ROS 2 gz_bridge parameter bridges -->
+    <node pkg="ros_gz_bridge" exec="parameter_bridge" output="screen" name="camera_bridge">
+        <param name="args" value="/camera@sensor_msgs/msg/Image@ignition.msgs.Image"/>
+    </node>
+    
+    <node pkg="ros_gz_bridge" exec="parameter_bridge" output="screen" name="camera_info_bridge">
+        <param name="args" value="/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo"/>
+    </node>
+    
+    <node pkg="ros_ign_bridge" exec="parameter_bridge" output="screen" name="propeller_joint_bridge">
+        <param name="args" value="/model/tethys/joint/propeller_joint/cmd_pos@std_msgs/msg/Float64@ignition.msgs.Double"/>
+    </node>
+    
+    <node pkg="ros_ign_bridge" exec="parameter_bridge" output="screen" name="vertical_bridge">
+        <param name="args" value="/vertical@std_msgs/msg/Float64@ignition.msgs.Double"/>
+    </node>
+    
+    <node pkg="ros_ign_bridge" exec="parameter_bridge" output="screen" name="horizontal_bridge">
+        <param name="args" value="/horizontal@std_msgs/msg/Float64@ignition.msgs.Double"/>
+    </node>
+
+    <!-- Launch the apriltag_node -->
+    <node
+        pkg="apriltag_ros"
+        exec="apriltag_node"
+        name="apriltag_node"
+        output="screen">
+        
+        <!-- Remap topics -->
+        <remap from="image_rect" to="/camera"/>
+        <remap from="camera_info" to="/camera_info"/>
+
+        <!-- Provide the parameter file -->
+        <param name="use_sim_time" value="false"/>
+        <param name="params_file" value="/home/reefranger/.ros/install/apriltag_ros/share/apriltag_ros/cfg/tags_36h11.yaml"/>
+    </node>
+    
+    <!-- Launch RQT Graph -->
+    <node pkg="rqt_graph" exec="rqt_graph" output="screen" name="rqt_graph"/>
+    
+    <!-- Launch Gazebo with the SDF file -->
+  
+</launch>

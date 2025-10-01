@@ -1,0 +1,22 @@
+ekf_filter_node:
+  ros__parameters:
+    frequency: 30.0  # The rate at which odometry is published, e.g., 30 Hz
+    publish_tf: true  # Publish transformations if needed
+    publish_acceleration: true  # Optional, only if you want to publish acceleration data
+    world_frame: "map"  # The frame for the odometry output
+    odom_frame: "odom"  # Frame ID for the odometry data
+    base_link_frame: "own/base_link/imu_sensor"  # Frame ID of the robot's base
+    print_diagnostics: true
+    two_d_mode: true
+
+    # IMU settings
+    imu0: "/imu/data"  # Your IMU topic
+    imu0_config: [false, false, false,
+                  true, true, false,  # Only roll and pitch are used; YAW is ignored
+                  false, false, false,
+                  true, true, false,  # Angular velocities except yaw are used
+                  true, true, false]  # Linear accelerations except yaw are used
+    imu0_differential: false
+    imu0_queue_size: 5
+
+   

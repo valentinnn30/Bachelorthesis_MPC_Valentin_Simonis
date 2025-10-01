@@ -1,0 +1,9 @@
+digraph G {
+"camera" -> "tag36h11:1"[label=" Broadcaster: default_authority\nAverage rate: 28.4\nBuffer length: 5.0\nMost recent transform: 1751358743.03149\nOldest transform: 1751358738.031516\n"];
+"camera" -> "tag36h11:2"[label=" Broadcaster: default_authority\nAverage rate: 28.4\nBuffer length: 5.0\nMost recent transform: 1751358743.03149\nOldest transform: 1751358738.031516\n"];
+"camera" -> "tag36h11:5"[label=" Broadcaster: default_authority\nAverage rate: 28.4\nBuffer length: 5.0\nMost recent transform: 1751358743.03149\nOldest transform: 1751358738.031516\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1751463839.2401786"[ shape=plaintext ] ;
+}->"camera";
+}

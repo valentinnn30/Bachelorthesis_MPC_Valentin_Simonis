@@ -1,0 +1,284 @@
+rosdep update
+rosdep install -i --from-path src --rosdistro humble -y
+colcon build -symlink-install
+
+ros2 run ros_ign_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock
+ros2 run ros_ign_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock
+
+self._action_client = ActionClient(self, Move, 'navigatetable')
+from move_interface.action import Move
+
+from godown_interface.action import Godownint
+
+
+
+ros2 action send_goal navigatetable move_interface/action/Move "{targetx: 1, targety: 1}"
+ros2 action send_goal gototable gototable_interface/action/GoTable "{targetx: 1, targety: 1}"
+ros2 action send_goal godownserver godown_interface/action/Godownint "{targetx: 1, targety: 1}"
+
+ros2 run movetable movetable
+ros2 run GoDown GoDown
+ros2 run gototable gototable
+
+
+<include>
+      <uri>file://table</uri>
+      <name>table2</name>
+          <pose>1 0 -5 0 0 0</pose> <!-- New location: x=0, y=0, z=-7 -->
+    </include>
+         <include>
+      <uri>file://table</uri>
+      <name>table1</name>
+          <pose>3 0 -5 0 0 0</pose> <!-- New location: x=0, y=0, z=-7 -->
+    </include>
+             <include>
+      <uri>file://table</uri>
+      <name>table3</name>
+          <pose>3 2 -5 0 0 0</pose> <!-- New location: x=0, y=0, z=-7 -->
+    </include>
+
+
+
+cd /home/reefranger/Desktop/ReefRanger/robot/robot
+colcon build
+source install/setup.bash
+
+cd /home/reefranger/Desktop/ReefRanger/robot/sim
+gz sim underwater.sdf
+ign gazebo underwater.sdf
+
+cd /home/reefranger/Desktop/ReefRanger/robot/robot/src/launch
+ros2 launch sim_launch.py
+ros2 launch robot_launch.py
+
+
+
+
+
+
+
+
+
+
+
+
+
+ros2 launch urdf_tutorial display.launch.py model:=robot/robot.urdf
+ 
+
+colcon build --packages-select my_package
+ros2 run tf2_ros static_transform_publisher 0 0 0 0 0 0 base_link tethys/base_link/imu_sensor
+
+
+ export ROS_DOMAIN_ID=1
+
+for launching gazebo
+cd ~/Desktop/ReefRanger/src/gz_simulation_own
+
+
+source /home/reefranger/Desktop/ReefRanger/robot/robot/src/install/setup.bash
+ros2 launch /home/reefranger/Desktop/ReefRanger/robot/robot/src/launch/robot_launch.py
+
+ros2 launch /home/reefranger/Desktop/ReefRanger/robot/robot/src/launch/sim_launch.py
+
+echo "source /home/reefranger/Desktop/robot/robot/install/setup.bash" >> ~/.bashrc
+
+
+        # YOLOv8 Bringup Launch File
+        ExecuteProcess(
+            cmd=['ros2', 'launch', 'yolov8_bringup', 'yolocoral.launch.py'],
+            output='screen'
+        ),
+for launching robot
+cd ~/Desktop/ReefRanger/src/robot_urdf/robot_urdf
+ros2 run robot_urdf state_publisher
+
+ros2 launch urdf_tutorial display.launch.py model:=robot/robot.urdf
+    apriltag_ros_pkg_path = os.path.join(
+        get_package_share_directory('apriltag_ros'),
+        'cfg',
+        'tags_36h11.yaml'
+    )
+
+        # EKF Localization Node
+        Node(
+            package='robot_localization',
+            executable='ekf_node',
+            name='ekf_filter_node',
+            output='screen',
+            parameters=['/home/reefranger/Desktop/robot/robot/src/robotpub/desc/efk.yaml']
+        ),
+
+        # AprilTag Detection Node
+        Node(
+            package='apriltag_ros',
+            executable='apriltag_node',
+            name='apriltag_node',
+            output='screen',
+            remappings=[
+                ('image_rect', '/image_raw'),
+                ('camera_info', '/camera_info')
+            ],
+            parameters=[apriltag_ros_pkg_path]
+        ),
+        
+
+
+
+already implemented commands:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+or launching apriltag_node
+cd ~/Desktop/ReefRanger/src/apriltag_ros
+source install/setup.bash
+ros2 run apriltag_ros apriltag_node --ros-args \
+    -r image_rect:=/camera \
+    -r camera_info:=/camera_info \
+    --params-file `ros2 pkg prefix apriltag_ros`/share/apriltag_ros/cfg/tags_36h11.yaml
+
+
+
+        """""
+        Node(
+            package='robot_localization',
+            executable='ekf_node',
+            name='ekf_filter_node',
+            output='screen',
+            parameters=['/home/reefranger/Desktop/robot/robot/src/robotpub/desc/efk.yaml']
+        ),
+        
+        # AprilTag Detection Node
+        Node(
+            package='apriltag_ros',
+            executable='apriltag_node',
+            name='apriltag_node',
+            output='screen',
+            remappings=[
+                ('image_rect', '/image_raw'),
+                ('camera_info', '/camera_info')
+            ],
+            parameters=[apriltag_ros_pkg_path]
+        ),
+
+
+
+for connecting foxglove
+ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=8765
+
+ros2 launch yolov8_bringup yolocoral.launch.py
+
+
+
+        # Run the apriltag_node with remappings and parameters
+        Node(
+            package='apriltag_ros',
+            executable='apriltag_node',
+            name='apriltag_node',
+            remappings=[
+                ('image_rect', '/camera'),
+                ('camera_info', '/camera_info'),
+            ],
+            parameters=[apriltag_ros_pkg_path],
+            output='screen'
+        ),
+
+source ~/Desktop/ReefRanger/src/apriltag_ros/install/setup.bash
+source ~/Desktop/ReefRanger/src/install/setup.bash
+ros2 run pathctrl pathctrl
+ --ros-args -p k_p:=5.0 -p k_i:=0.2 -p k_d:=0.6
+
+ros2 run ros_ign_bridge parameter_bridge /thruster/cmd@std_msgs/msg/Float64@ignition.msgs.Double
+
+colcon build
+source install/local_setup.bash
+source install/setup.bash
+ros2 launch camera-sensor-example arashs_wonderland.launch.py
+ros2 run ros_ign_bridge parameter_bridge /vertical@std_msgs/msg/Float64@ignition.msgs.Double
+ros2 run ros_gz_bridge parameter_bridge /camera@sensor_msgs/msg/Image@ignition.msgs.Image
+ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo
+ros2 run ros_ign_bridge parameter_bridge /model/tethys/joint/propeller_joint/cmd_pos@std_msgs/msg/Float64@ignition.msgs.Double
+ros2 run ros_ign_bridge parameter_bridge /vertical@std_msgs/msg/Float64@ignition.msgs.Double
+ros2 run ros_ign_bridge parameter_bridge /horizontal@std_msgs/msg/Float64@ignition.msgs.Double
+ros2 run ros_gz_bridge parameter_bridge imu@sensor_msgs/msg/Imu@ignition.msgs.IMU
+
+export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:~/Desktop/ReefRanger/src/Camera_Test/gazebo_apriltag/models
+export GAZEBO_RESOURCE_PATH=~/Desktop/ReefRanger/src/Camera_Test/gazebo_apriltag/models
+export GAZEBO_RESOURCE_PATH=~~/Desktop/ReefRanger/src/gz_simulation_own/nist_maze_wall_120
+
+ros2 run ros_ign_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock
+
+
+cd apriltag_ros
+source src/apriltag_ros/install/setup.bash
+ros2 run apriltag_ros apriltag_node --ros-args \
+    -r image_rect:=/image_raw \
+    -r camera_info:=/camera_info \
+    --params-file `ros2 pkg prefix apriltag_ros`/share/apriltag_ros/cfg/tags_36h11.yaml
+
+ros2 run apriltag_ros apriltag_node --ros-args \
+    -r image_rect:=/camera \
+    -r camera_info:=/camera_info \
+    --params-file `ros2 pkg prefix apriltag_ros`/share/apriltag_ros/cfg/tags_36h11.yaml
+
+
+ros2 run usb_cam usb_cam_node_exe
+
+   
+ros2 topic echo /detections
+
+   frame_id: default_cam
+  child_frame_id: base
+  transform:
+ros2 run usb_cam usb_cam_node_exe --ros-args --params-file ~/Desktop/ReefRanger/robot/robot/src/usb_cam/config/params_1.yaml
+
+
+
+ign topic -e -t /imu
+
+
+ros2 run ros_gz_bridge parameter_bridge /model/bcu/buoyancy_engine@std_msgs/msg/Float64@gz.msgs.Double
+
+
+for launching ros bridges:
+source ~/Desktop/ReefRanger/src/apriltag_ros/install/setup.bash
+source ~/Desktop/ReefRanger/src/install/setup.bash
+ros2 launch ~/Desktop/ReefRanger/src/launch/sim_launch.py
+
+    <include>
+      <uri>file://arashcamera</uri>
+      <name>camera</name>
+      <pose>0 -4 0.5 -0 -0 1.75</pose>
+    </include>
+
+ign topic -t /model/tethys/joint/vertical_fins_joint/0/cmd_pos \
+  -m ignition.msgs.Double -p 'data: -0.17'
+
+
+    
+    ign topic -t /model/tethys/joint/propeller_joint/cmd_pos \
+-m ignition.msgs.Double -p 'data: 21'
+
+cd Desktop/ReefRanger/src/gz_simulation_own/
+
+
+
+
+ros2 launch yolov8_bringup yolocoral.launch.py
+
+run2 run imagepub imagepub
+save_detect
+
+ign topic -e -t /my
+ e 

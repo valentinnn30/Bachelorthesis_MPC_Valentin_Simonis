@@ -1,0 +1,7 @@
+float64 targetx
+float64 targety
+---
+bool success
+---
+float64 currx
+float64 curry
