@@ -1,3 +1,9 @@
+This repository contains all files necessary to reproduce the experiments with the robot using ROS2 conducted during my bachelor thesis. It is derived from the ReefRanger repository but has been simplified to include only the components relevant to the tests.
+
+First, this file provides an overview of all dependencies and environment specifications. Below, you will find the instructions on how to reproduce the commands.
+
+The most important information about the mpc-specific files can be found at the bottom of the page.
+
 # Dependencies
 
 - Ubuntu 22.04 jammy jellyfisch
@@ -37,22 +43,72 @@
   check via: groups
   check permission: ls -l /dev/ttyACM0
 
-
-- Large File Storage:
-  - sudo apt install git-lfs
-  - Go into folder with src-> git lfs install -> git lfs pull
-- Gazebo Harmonic:
-  - wget https://gazebosim.org/repos/gz-archive-keyring.gpg -O - | sudo apt-key add –
-  - sudo sh -c 'echo "deb [arch=amd64] http://packages.osrfoundation.org/gz/gz-ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/gazebo-stable.list'
-  - sudo apt update
-  - sudo apt install gz-harmonic
-  - sudo apt-get install ros-humble-ros-gzharmonic
-
 - Nav2 msgs:
   - sudo apt-get install ros-humble-nav2-msgs
 - Rosdep
   - colcon build --symlink-install --install-base ./install
-- Robot localization:
-  -
+
+
+# Usage
+
+### First time installing
+sudo rosdep init
+rosdep update
+rosdep install -i --from-path src --rosdistro humble -y
+rosdep install --from-paths src --ignore-src -r -y
+
+### Auto source
+nano ~/.bashrc
+source Bachelorthesis_MPC_Valentin_Simonis/robot/aki/install/setup.bash
+
+### Build and source
+cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki
+colcon build
+source install/setup.bash
+
+## Launching the Autonomous Mission (using PID)
+
+### Launch Robot(Yolo, Slam, etc)
+cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki/
+ros2 launch robot_launch.py
+
+### Launch state machine
+cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki/
+ros2 run nav_tools statemachine
+
+## Ground truth collection and evaluation
+
+### Launching the ground truth collection process
+cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki/
+ros2 launch modeling_launch.py
+
+### Processing the ground truth data
+cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki/
+- ros2 run modeling_tools multiple_inverse
+- ros2 run modeling_tools robotpos
+- ros2 run modeling_tools savetocsv
+
+## Running the MPC
+
+### Launching the MPC helper files
+cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki/
+ros2 launch modeling_launch.py
+
+### Running the MPC
+cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki/
+ros2 run nav_slam mpc_tvp
+### The MPC is implemented in mpc_tvp.py and mpc_config_tvp.py at Bachelorthesis_MPC_Valentin_Simonis/robot/aki/src/nav_slam/nav_slam
+
+## Switch between vertical and general MPC
+file location: Bachelorthesis_MPC_Valentin_Simonis/robot/aki/src/nav_slam/nav_slam/mpc_config_tvp.py
+- get_mpc() function sets up the general MPC
+- get_mpc_bcuonly() function sets up the vertical MPC
+
+file location: Bachelorthesis_MPC_Valentin_Simonis/robot/aki/src/nav_slam/nav_slam/mpc_tvp.py
+- Comment line 107 and uncomment line 109 for vertical MPC
+- reverse for general MPC
+- change line 181: use t=0.2 for general MPC and t=0.5 for vertical MPC 
+
+
 
 

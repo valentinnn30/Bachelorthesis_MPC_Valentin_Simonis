@@ -4,11 +4,10 @@ from rclpy.node import Node
 import time
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
-from rclpy.callback_groups import MutuallyExclusiveCallbackGroup # if all callback function should run sequentially
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup 
 from rclpy.executors import ExternalShutdownException
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.action import ActionClient
-# from slam_interface.action import ActivateSlam
 import numpy as np
 from collections import deque
 import matplotlib.pyplot as plt
@@ -94,11 +93,11 @@ class MPCControlNode(Node):
         # Define your target state (x, y, depth, yaw, etc.)
         # This will be used by the MPC to calculate control inputs
         self.reference_goal = {
-            'x': 0.25,
-            'y': -0.09,
+            'x': 0.25, # Example target x
+            'y': -0.09, # Example target y
             'depth': -2.0, # Example target depth
             'yaw': 0.0,
-            'bcu_pos': 75.0 # Target BCU position
+            'bcu_pos': 75.0 # Target BCU position (since neutral is 75, zero force at target)
         }
         self.get_logger().info(f"Reference Goal: {self.reference_goal}")
 
@@ -108,40 +107,30 @@ class MPCControlNode(Node):
         self.mpc = get_mpc(self.model, self.reference_goal)
         # use below to get the model with BCU only
         # self.mpc = get_mpc_bcuonly(self.model, self.reference_goal)
+        
         # === IMPORTANT: Configure Time-Varying Parameters (TVP) for MPC ===
         # This is how the MPC gets its changing reference values each step.
         self.tvp_template = self.mpc.get_tvp_template() # Get the structure
 
-        # Define the actual tvp_fun function that accesses the node's state
-        # This function must be a method of the class or a closure that captures 'self'
         def dynamic_tvp_fun(t_now):
-            # Fill the template for the entire prediction horizon (k = 0 to n_horizon)
-            # For a step-change in reference, the reference is constant over the horizon.
-            # self.get_logger().info(f"Entered dynamic_tvp_fun at time {t_now}")
-            # self.get_logger().info(f"Reference goal: {self.reference_goal}")
             for k in range(self.mpc.n_horizon + 1):
-                # Ensure the Z-reference matches your model's Z-axis direction (positive upwards)
-                # If self.reference_goal['depth'] is positive downwards, then model.tvp['z_ref'] should be negative.
+                # Update the TVP template with the current reference goal
                 self.tvp_template['_tvp', k, 'x_ref'] = self.reference_goal['x']
                 self.tvp_template['_tvp', k, 'y_ref'] = self.reference_goal['y']
                 self.tvp_template['_tvp', k, 'z_ref'] = self.reference_goal['depth']
                 self.tvp_template['_tvp', k, 'yaw_ref'] = self.reference_goal['yaw']
                 
-                # Assume target velocities are usually zero for position holding.
-                # If you need to command specific velocities, you would update these similarly.
                 self.tvp_template['_tvp', k, 'u_ref'] = 0.0
                 self.tvp_template['_tvp', k, 'v_ref'] = 0.0
                 self.tvp_template['_tvp', k, 'w_ref'] = 0.0 # Target zero vertical velocity
                 self.tvp_template['_tvp', k, 'r_ref'] = 0.0 # Target zero yaw rate
-                # If you have a BCU position reference that you want the MPC to track (and it's a TVP)
-                # self.tvp_template['_tvp', k, 'bcu_pos_ref'] = self.reference_goal['bcu_pos']
             return self.tvp_template
 
         # Assign this dynamic_tvp_fun to the MPC controller
         self.mpc.set_tvp_fun(dynamic_tvp_fun)
 
         self.create_subscription(
-            Float64MultiArray, # Or a custom message type if you prefer a struct
+            Float64MultiArray, 
             '/target_pose', # Topic to send [x, y]
             self.set_target_pose_callback,
             10
@@ -158,16 +147,14 @@ class MPCControlNode(Node):
         # Initial state for MPC and simulator (9 DoF assumed based on original code)
         # x, y, z, yaw, x_vel, y_vel, z_vel, vy, BCU_pos
         # Update later based on actual sensor data
-        #self.x0 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 75.0]) # Initial state including BCU
         self.current_x0 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 75.0]) # Initial state including BCU
         self.mpc.x0 = self.current_x0 # Set initial state for MPC
-        #self.mpc.set_initial_guess()
         self.first_mpc_run = True
 
 
         # --- D matrix for numpy (used for f_xyz in NumPy context) ---
         theta_rad = np.deg2rad(20)
-        azimuths = [0, 2*np.pi/3, 4*np.pi/3]
+        azimuths = [-np.pi/3, np.pi/3, np.pi]
         dirs_np = []
         for a in azimuths:
             dir_x = np.cos(a) * np.cos(theta_rad)
@@ -191,7 +178,7 @@ class MPCControlNode(Node):
         # --- Control Loop Timer ---
         # This timer will trigger the MPC calculation and publishing
         # adjust to 2 Hz for bcu only mpc
-        self.control_timer = self.create_timer(0.2, self.control_loop_callback, callback_group=self.cb_group_control) # 5 Hz control loop (0.2) -> adjusted to 1 Hz
+        self.control_timer = self.create_timer(0.2, self.control_loop_callback, callback_group=self.cb_group_control) 
 
     # --- NEW: Reference Command Callbacks ---
     def set_target_pose_callback(self, msg: Float64MultiArray):
@@ -222,15 +209,15 @@ class MPCControlNode(Node):
         self.reference_goal['depth'] = -new_depth
         self.get_logger().info(f"Updated Target Depth: {self.reference_goal['depth']:.2f} m")
 
-    # In your path_array_callback(self, msg):
     def path_array_callback(self, msg):
         if len(msg.poses) == 0:
             self.get_logger().warn('Received an empty Path message.')
             return
-
+        
+        scaling_factor = 3.0 # Scale down the path coordinates, as explained in the report
         newest_pose = msg.poses[-1]
-        current_x = newest_pose.pose.position.x /5.0
-        current_y = newest_pose.pose.position.y /5.0
+        current_x = newest_pose.pose.position.x /scaling_factor
+        current_y = newest_pose.pose.position.y /scaling_factor
         
         # Orientation (quaternion to Euler yaw)
         q = newest_pose.pose.orientation
@@ -325,22 +312,6 @@ class MPCControlNode(Node):
             self.get_logger().warn("Waiting for all sensor data (x, y, yaw, depth)...")
             return
 
-        # --- Update the MPC's current state (x0) with sensor data ---
-        # THIS IS CRUCIAL: Map your sensor readings to your model's state vector (x0)
-        # Adjust indices and values based on your actual model definition
-        # Assuming x0 = [x, y, z(depth), roll, pitch, yaw, vx, vy, BCU_pos]
-        """current_x0 = self.x0.copy() # Start with the last simulated state or a fresh one
-        current_x0[0] = self.x
-        current_x0[1] = self.y
-        current_x0[2] = -self.depth # Assuming 3rd element is depth/z, negative for depth below surface
-        current_x0[3] = self.yaw # 4th element is yaw
-        current_x0[4] = self.vx # Assuming 5th element is x_velocity, can be estimated or left at 0 if not used by MPC
-        current_x0[5] = self.vy # Assuming 6th element is
-        current_x0[6] = self.z_velocity # velocity for z
-        current_x0[7] = self.yaw_rate # Assuming 7th element is y_velocity, can be estimated or left at 0 if not used by MPC
-        current_x0[8] = self.bcu_actual_pos # Assuming
-        """
-
         self.current_x0 = np.array([
             self.x,
             self.y,
@@ -365,26 +336,10 @@ class MPCControlNode(Node):
             self.mpc.x0 = self.current_x0
             self.get_logger().info(f"Current state: {self.current_x0}")
             self.get_logger().info(f"Current goal: {self.reference_goal}")
-            """ref = np.array(self.reference_goal)
-            x00 = np.array(self.current_x0)
-            self.error = ref[:4] - x00[:4]
-            self.get_logger().info(f"Current Error: {self.error}")
-            error_publisher_msg = Float32MultiArray()
-            error_publisher_msg.data = self.error.tolist()  # Convert numpy array to list
-            self.error_publisher.publish(error_publisher_msg)"""
-        
 
 
         # --- MPC Step ---
         u0 = self.mpc.make_step(self.current_x0) # MPC calculates optimal control inputs
-
-        # Measure the time taken for the MPC solve step
-
-        # start_time = time.time()
-        # u0 = self.mpc.make_step(self.current_x0)
-        # elapsed = time.time() - start_time
-        # self.get_logger().info(f"MPC solve time: {elapsed:.3f} s")
-
         
         # Ensure u0 is a numpy array
         if not isinstance(u0, np.ndarray):
@@ -423,19 +378,9 @@ class MPCControlNode(Node):
         bcu_actual.data = self.current_x0[8] # BCU input typically an integer
         self.bcu_actual_publisher.publish(bcu_actual)
 
-        # --- BCU position---
-        """try:
-            # Assuming k_rate is defined as a parameter in your do-mpc model
-            # and set as a nominal value within mpc.set_uncertainty_values()
-            k_rate_val = self.mpc.set_uncertainty_values['k_rate']
-        except Exception as e:
-            self.get_logger().error(f"Could not retrieve 'k_rate' from MPC model parameters: {e}. Using default 0.25.")
-            k_rate_val = 0.25 # Fallback to a hardcoded default if retrieval fails
-        """
-        k_rate_val = 2.5 # Fallback to a hardcoded default if retrieval fails
-        v_max = 6.989
-        # The time step (dt) for integration
-        # dt = 0.2  # Use the MPC's control interval as your integration time step
+        k_rate_val = 0.45 # Fallback to a hardcoded default if retrieval fails
+        v_max = 6.86
+
         if self.time is not None:
             self.previous_time = self.time
             self.time = self.get_clock().now()
@@ -444,18 +389,9 @@ class MPCControlNode(Node):
             self.time = self.get_clock().now()
             dt = 0.2
 
-          # Get the current time from the ROS clock
-
-
-        # hardcoded t_step of mpc_config
-        # Calculate BCU_dot (rate of change of BCU position)
-        # This uses the BCU_INPUT commanded by the MPC and the current estimated BCU position
-        #bcu_dot = k_rate_val * (BCU_input - self.bcu_actual_pos)
-
         e = BCU_input - self.bcu_actual_pos
         raw = k_rate_val * e
-        # use CasADi’s if_else to saturate
-        #BCU_dot = if_else(fabs(raw) < v_max,raw, v_max * sign(e))
+       
         bcu_dot = v_max * np.tanh(raw / v_max)
         # Integrate (Euler method) to get the new estimated BCU position
         self.bcu_actual_pos = float(self.bcu_actual_pos + bcu_dot * dt)
@@ -553,17 +489,8 @@ class MPCControlNode(Node):
 
         # Plot 1: Position and Orientation (eta)
         fig, axs = plt.subplots(3, 1, figsize=(10, 12))
-        #axs[0].plot(trajectory[:, 0], label='x', color='r')
-        #axs[0].plot(trajectory[:, 1], label='y', color='g')
         axs[0].plot(trajectory[:, 2], label='z', color='b')
-        # ... (target lines for x, y, z from self.reference_goal) ...
-        # axs[0].axhline(y=self.reference_goal['x'], color='r', linestyle=':', label=f'Target x: {self.reference_goal["x"]}')
-        # axs[0].axhline(y=self.reference_goal['y'], color='g', linestyle=':', label=f'Target y: {self.reference_goal["y"]}')
-        # axs[0].axhline(y=self.reference_goal['depth'], color='b', linestyle=':', label=f'Target z: {self.reference_goal["depth"]}')
-        #axs[0].plot(ref_log[:, 0], '--', label='Target x', color='r')
-        #axs[0].plot(ref_log[:, 1], '--', label='Target y', color='g')
         axs[0].plot(ref_log[:, 2], '--', label='Target z', color='b')
-
         axs[0].legend()
         axs[0].set_title('Position [m]')
         axs[0].set_ylabel('Position [m]')
@@ -571,7 +498,6 @@ class MPCControlNode(Node):
         axs[0].grid(True)        
 
         axs[1].plot(trajectory[:, 3], label='yaw')
-        # axs[1].axhline(y=self.reference_goal['yaw'], color='m', linestyle=':', label=f'Target Yaw: {self.reference_goal["yaw"]:.2f}')
         axs[1].plot(ref_log[:, 3], '--', label='Target yaw', color='m')
         axs[1].legend()
         axs[1].set_title('Orientation (Yaw) [rad]')
@@ -676,11 +602,7 @@ def main(args=None):
     except KeyboardInterrupt:
         node.get_logger().info("MPC Control Node stopped by user.")
     finally:
-        # Save logs if desired (e.g., to a CSV file)
-        # np.savetxt('trajectory.csv', node.trajectory, delimiter=',')
-        # np.savetxt('u_T_log.csv', node.u_T_log, delimiter=',')
-        # folgendes auskommentieren um zu plotten
-        node.plot_results()
+        # node.plot_results()
         # print("Plots generated. Close the plot windows to terminate program.")
         node.destroy_node()
         rclpy.shutdown()

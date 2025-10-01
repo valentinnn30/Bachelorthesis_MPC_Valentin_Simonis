@@ -1,17 +1,10 @@
-
-# this is the 4DoF model (directions and yaw), above the same but with 6 DoF.
-# Pumps only for horizontal, bcu only for vertical
-
-
 from casadi import *
 import do_mpc
 import numpy as np
 import os
 import sys
 
-# If needed (for local usage of do-mpc):
-#rel_do_mpc_path = os.path.join('..','..','..')
-#sys.path.append(rel_do_mpc_path)
+
 
 
 def get_model():
@@ -54,7 +47,7 @@ def get_model():
     v_max  = m.set_variable('parameter', 'v_max')
 
     # === Time-Varying Parameters (TVP) for Reference Tracking ===
-    # These will be updated dynamically by your ROS node.
+    # These will be updated dynamically by the ROS node.
     m.set_variable(var_type='_tvp', var_name='x_ref')
     m.set_variable(var_type='_tvp', var_name='y_ref')
     m.set_variable(var_type='_tvp', var_name='z_ref')     # Target Z-position (from depth)
@@ -110,7 +103,6 @@ def get_model():
 
     # === THRUSTER DIRECTIONS ===
     theta_rad = np.deg2rad(20) # Angle of T1, T2, T3 with the horizontal plane
-    # azimuths = [0, 2*np.pi/3, 4*np.pi/3]
     azimuths = [-np.pi/3, np.pi/3, np.pi]
     dirs = []
 
@@ -131,14 +123,11 @@ def get_model():
     m.set_expression(expr_name='f_xyz', expr=f_xyz)
 
     # Buoyancy control force Fz_x based on a (adjusted linearly between -1.6N and 1.6N)
-    # BCU_dot = k_rate * (BCU_INPUT - BCU_position)  # Change in position based on setpoint a and current position
     e = BCU_INPUT - BCU_position
     raw = k_rate * e
-    # use CasADi’s if_else to saturate
-    #BCU_dot = if_else(fabs(raw) < v_max,raw, v_max * sign(e))
     BCU_dot = v_max * tanh(raw / v_max)
 
-    Fz_x = (BCU_position - 75) * 0.0984 # with 1.6N a value of 0.064
+    Fz_x = (BCU_position - 75) * 0.0984 
     m.set_expression(expr_name='Fz_x_output', expr=Fz_x)
     
     # Thruster forces and torques
@@ -150,15 +139,12 @@ def get_model():
     )
 
     # === DYNAMICS ===
-    # nu_dot = inv(M) @ (tau - D_nu)
     nu_dot = inv(M) @ (tau - D_nu - C_nu + d_ext)
 
     # === RIGHT-HAND SIDES ===
     m.set_rhs('eta', eta_dot)
     m.set_rhs('nu', nu_dot)
     m.set_rhs('BCU_position', BCU_dot)
-    # m.set_rhs('d_ext', SX.zeros(4,1))  # Constant disturbance over the prediction horizon
-
 
     m.setup()
 
@@ -171,19 +157,19 @@ def get_mpc(model, reference_goal):
     mpc = do_mpc.controller.MPC(model)
 
     setup_mpc = {
-        'n_horizon': 5, # 2 seconds in future is absoluetly fine, everything else doesn£t help
+        'n_horizon': 5, 
         't_step': 0.2, 
         'state_discretization': 'collocation',
         'collocation_type': 'radau',
         'collocation_deg': 3,
         'collocation_ni': 2,
         'store_full_solution': True,
-        'n_robust': 1, # use some other values to have uncertainty parameters inside the model
+        'n_robust': 1, 
         'nlpsol_opts': {
         'ipopt': {
-            'linear_solver': 'ma57',
+            'linear_solver': 'ma27',
             'hsllib':'/usr/local/lib/libcoinhsl.so',
-            'max_iter': 120  # limit iterations to 100
+            'max_iter': 120  
         }
     }
     }
@@ -205,29 +191,7 @@ def get_mpc(model, reference_goal):
         model.tvp['w_ref'], # Model's W (vertical velocity)
         model.tvp['r_ref']
     )
-    # mterm = (model.x['eta'] - tvp_ref_eta)**2 + (model.x['nu'] - tvp_ref_nu)**2
-
-
-    # Define reference values for eta and nu
-    #ref_eta = ca.DM([5, 4, -3, 0]).reshape((4, 1))
-    #ref_nu  = ca.DM([0, 0, 0, 0]).reshape((4, 1))
     
-    # If you want to use a specific reference goal, uncomment the following lines:
-    # ref_eta = ca.DM([reference_goal['x'], reference_goal['y'], reference_goal['depth'], reference_goal['yaw']]).reshape((4, 1))
-    # ref_nu  = ca.DM([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
-
-
-    # Define terminal and stage costs
-    # mterm = (model.x['eta'] - ref_eta)**2 + (model.x['nu'] - ref_nu)**2
-
-    # --- Penalties --- approach from simulation
-    # Z_FORCE_PENALTY_WEIGHT = 50.0 # High penalty for Z-force from thrusters (adjust as needed)
-    # THRUSTER_USE_PENALTY_WEIGHT = 0.01 # General penalty for thruster usage
-    # W_NU_Z = 5 # penalizes speed of robot, should move down slow to avoid overshoot due to high inertia
-    #lterm = ca.sum1(mterm) + THRUSTER_USE_PENALTY_WEIGHT * ca.sum1(model.u['T']**2) + 0.01 * ca.sum1(model.u['BCU_INPUT']**2) + Z_FORCE_PENALTY_WEIGHT * (model.aux['f_xyz'][2]**2)
-    # not penalize BCU, makes no sense, outmax is nice. Extended BCU is same as retracted -> maybe nice to be closer to neutrally buoyant, but then transform to forces!
-    # lterm = ca.sum1(mterm) + THRUSTER_USE_PENALTY_WEIGHT * ca.sum1(model.u['T']**2) + Z_FORCE_PENALTY_WEIGHT * (model.aux['f_xyz'][2]**2) + W_NU_Z * (model.x['nu'][2]**2)
-
     # updated weights to match the desired behavior
     # thresholds (adapts if needeed)
     dx_thresh = 0.04   # 4 cm for XY
@@ -249,19 +213,18 @@ def get_mpc(model, reference_goal):
     pos_cost = Wx*pen_x**2 + Wy*pen_y**2 + Wz*pen_z**2
 
     # velocity penalties
-    Wu, Wv, Ww = 1200.0, 1200.0, 1800.0   # tuneable: w heavier if Z is trickier
+    Wu, Wv, Ww = 1200.0, 1200.0, 1800.0  
     vel_cost = Wu*(model.x['nu'][0]**2) \
          + Wv*(model.x['nu'][1]**2) \
          + Ww*(model.x['nu'][2]**2)
 
 
     # smoothness / effort
-    thruster_cost = 10.0*ca.sum1(model.u['T']**2) # 10.0 is better than rterm 50
+    thruster_cost = 10.0*ca.sum1(model.u['T']**2) 
     z_force_cost = 1e5*(model.aux['f_xyz'][2]**2)   # high weight so avoid thrust in Z direction
 
     # final objectives
     lterm = pos_cost + vel_cost + thruster_cost + z_force_cost
-    # lterm = pos_cost + vel_cost + z_force_cost
     mterm = pos_cost + vel_cost
 
 
@@ -278,8 +241,6 @@ def get_mpc(model, reference_goal):
     # for the BCUs we constraint between 50 and 100, not the real forces, since a linear mapping exists
     mpc.bounds['lower','_u','BCU_INPUT'] = 50   # BCU force to move down
     mpc.bounds['upper','_u','BCU_INPUT'] = 100    # BCU force to move down
-    #mpc.bounds['lower', '_x', 'eta'][4] = -np.deg2rad(80)
-    #mpc.bounds['upper', '_x', 'eta'][4] =  np.deg2rad(80)
 
     # Model disturbances
     d_ext_min = ca.DM([-1.0, -1.0, -0.1, -0.3]).reshape((4,1))
@@ -292,42 +253,21 @@ def get_mpc(model, reference_goal):
       d_ext_max
     ]
 
-    # mpc.set_uncertainty_values(
-    #     #k_rate = [0.25],
-    #     k_rate = [2.5],
-    #     v_max  = [6.861063465],
-    #     mass = [19.16],
-    #     Izz = [0.285],
-    #     X_udot = [-4.317],  # Example uncertainty scenarios
-    #     Y_vdot = [-3.837],
-    #     Z_wdot = [-8.959],
-    #     N_rdot = [-9.885],
-    #     d_lin_0 = [4.042],  # Example uncertainty scenarios
-    #     d_lin_1 = [3.926],
-    #     d_lin_2 = [4.022],
-    #     d_lin_3 = [0.1046],
-    #     d_quad_0 = [4.09],
-    #     d_quad_1 = [4.071],
-    #     d_quad_2 = [4.084],
-    #     d_quad_3 = [3.888],
-    #     d_ext = d_ext_uncertainty_scenarios
-    # )
     
     mpc.set_uncertainty_values(
-        #k_rate = [0.25],
-        k_rate = [2.5],
-        v_max  = [6.989],
+        k_rate = [0.45],
+        v_max  = [6.86],
         mass = [20.085],
         Izz = [0.285],
-        X_udot = [-4.0],  # Example uncertainty scenarios
-        Y_vdot = [-4.0],
+        X_udot = [-4.3],  
+        Y_vdot = [-4.3],
         Z_wdot = [-136.567],
         N_rdot = [-9.885],
-        d_lin_0 = [10.01],  # Example uncertainty scenarios
+        d_lin_0 = [10.01],  
         d_lin_1 = [10.01],
         d_lin_2 = [27.40],
         d_lin_3 = [0.1046],
-        d_quad_0 = [60.0],
+        d_quad_0 = [62.13],
         d_quad_1 = [60.0],
         d_quad_2 = [1.9548],
         d_quad_3 = [3.888],
@@ -343,20 +283,18 @@ def get_mpc(model, reference_goal):
     # numpy arrays (or lists) with the values for each step of the horizon.
     # For a constant setpoint across the horizon, the value will be the same.
     def tvp_fun(t_now):
-        # This function will be assigned in your ROS node's __init__ to access
+        # This function will be assigned in the ROS node's __init__ to access
         # the node's dynamically updated self.reference_goal.
         # For now, it uses the initial_reference_goal passed to get_mpc.
         for k in range(setup_mpc['n_horizon'] + 1): # +1 because horizon includes current time (t_0 to t_N)
             tvp_template['_tvp', k, 'x_ref'] = reference_goal['x']
             tvp_template['_tvp', k, 'y_ref'] = reference_goal['y']
-            tvp_template['_tvp', k, 'z_ref'] = reference_goal['depth'] # Make sure this matches your model's Z-axis (upwards positive)
+            tvp_template['_tvp', k, 'z_ref'] = reference_goal['depth'] 
             tvp_template['_tvp', k, 'yaw_ref'] = reference_goal['yaw']
             tvp_template['_tvp', k, 'u_ref'] = 0.0 # Target zero velocity in body x
             tvp_template['_tvp', k, 'v_ref'] = 0.0 # Target zero velocity in body y
             tvp_template['_tvp', k, 'w_ref'] = 0.0 # Target zero velocity in body z
             tvp_template['_tvp', k, 'r_ref'] = 0.0 # Target zero yaw rate
-            # If you add bcu_pos_ref to model tvp and need to pass it:
-            # tvp_template['_tvp', k, 'bcu_pos_ref'] = initial_reference_goal['bcu_pos']
         return tvp_template
 
     mpc.set_tvp_fun(tvp_fun) # Assign the initial TVP function
@@ -372,14 +310,14 @@ def get_mpc_bcuonly(model, reference_goal):
 
 
     setup_mpc = {
-        'n_horizon': 30, # 15 seconds in future, large terminal cost is fine, it is realistic to reach the goal within this period of time
+        'n_horizon': 30, 
         't_step': 0.5,
         'state_discretization': 'collocation',
         'collocation_type': 'radau',
         'collocation_deg': 3,
         'collocation_ni': 2,
         'store_full_solution': True,
-        'n_robust': 1, # use some other values to have uncertainty parameters inside the model
+        'n_robust': 1, 
         'nlpsol_opts': {
         'ipopt': {
             'linear_solver': 'ma27',
@@ -406,8 +344,6 @@ def get_mpc_bcuonly(model, reference_goal):
         model.tvp['r_ref']
     )
 
-    # ref_eta = ca.DM([reference_goal['x'], reference_goal['y'], reference_goal['depth'], reference_goal['yaw']]).reshape((4, 1))
-    # ref_nu  = ca.DM([0.0, 0.0, 0.0, 0.0]).reshape((4, 1))
 
     # use scaled weights depending on usual errors
     Wz_L, Wz_T = 400.0, 4000.0 # cost for z coordinate for terminal and running cost
@@ -427,9 +363,6 @@ def get_mpc_bcuonly(model, reference_goal):
     mterm += model.x['nu'][1]**2 * Wtiny  # v (body y vel)
     mterm += model.x['nu'][3]**2 * Wtiny  # r (yaw rate)
 
-    # REMOVED COMPLETELY: Penalty for BCU_position at terminal state.
-
-
     # --- lterm (Running Cost) ---
     # Focus heavily on current depth (z) and zero vertical velocity (w)
     lterm = (model.x['eta'][2] - tvp_ref_eta[2])**2 * Wz_L  # Very high weight for depth (z)
@@ -444,24 +377,9 @@ def get_mpc_bcuonly(model, reference_goal):
     lterm += model.x['nu'][3]**2 * Wtiny  # r (yaw rate)
     lterm += (model.u['BCU_INPUT']-75.0)**2 * 0.01  # Small penalty for BCU input to avoid large changes
 
-    # Add one-sided no-crossing soft contraints to avoid overshoot
-
-
-    # # Residual that becomes positive only when we'd overshoot:
-    # # r_k = max(0, dir_no_cross * (z_ref - z))
-    # overshoot_residual = 0.5 * ((tvp_ref_eta[2] - model.x['eta'][2]) \
-    #                             + ca.fabs((tvp_ref_eta[2] - model.x['eta'][2])))
-
-    # # Soft constraint via heavy penalty in running cost:
-    # Wovershoot = 1e5   # big; raise if you *ever* see a crossing
-    # lterm += Wovershoot * overshoot_residual**2
-
-
-    # REMOVED COMPLETELY: Penalty for BCU_position in running cost.
 
     mpc.set_objective(mterm=ca.sum1(mterm), lterm=lterm) # Ensure it's summed if you have multiple terms
 
-    # mpc.set_rterm(BCU_INPUT=1e-2)
 
     # --- Input Constraints (remain unchanged to keep T1-T4 at zero) ---
     mpc.bounds['lower','_u','T'] = 0.0
@@ -471,50 +389,20 @@ def get_mpc_bcuonly(model, reference_goal):
 
     # --- Uncertainty values (remain unchanged) ---
 
-    # mpc.set_uncertainty_values(
-    #     k_rate = [0.25],
-    #     mass = [19.16],
-    #     Izz = [0.285],
-    #     X_udot = [-4.317],
-    #     Y_vdot = [-3.837],
-    #     Z_wdot = [-8.959],
-    #     N_rdot = [-9.885],
-    #     d_lin_0 = [4.042],
-    #     d_lin_1 = [3.926],
-    #     d_lin_2 = [4.022],
-    #     d_lin_3 = [0.1046],
-    #     d_quad_0 = [4.09],
-    #     d_quad_1 = [4.071],
-    #     d_quad_2 = [4.084],
-    #     d_quad_3 = [3.888],
-    #     d_ext = [ca.DM([0, 0, 0, 0]).reshape((4,1))] # activate d_ext if you want to use disturbances
-
-    # )
-    # d_ext_min = ca.DM([0, 0,-0.1, 0]).reshape((4,1))
-    # d_ext_max = ca.DM([0,  0,  1.0, 0]).reshape((4,1))
-    # d_ext_nominal = ca.DM([0, 0, 0, 0]).reshape((4,1))
-
-    # d_ext_uncertainty_scenarios = [
-    #   d_ext_nominal,
-    #   d_ext_min,
-    #   d_ext_max
-    # ]
-
     mpc.set_uncertainty_values(
-        #k_rate = [0.25],
-        k_rate = [2.5],
-        v_max  = [6.989],
+        k_rate = [0.45],
+        v_max  = [6.86],
         mass = [20.085],
         Izz = [0.285],
-        X_udot = [-4.0],  # Example uncertainty scenarios
-        Y_vdot = [-4.0],
+        X_udot = [-4.3],  
+        Y_vdot = [-4.3],
         Z_wdot = [-136.567],
         N_rdot = [-9.885],
-        d_lin_0 = [10.01],  # Example uncertainty scenarios
+        d_lin_0 = [10.01],  
         d_lin_1 = [10.01],
         d_lin_2 = [27.40],
         d_lin_3 = [0.1046],
-        d_quad_0 = [60.0],
+        d_quad_0 = [62.13],
         d_quad_1 = [60.0],
         d_quad_2 = [1.9548],
         d_quad_3 = [3.888],
@@ -529,20 +417,18 @@ def get_mpc_bcuonly(model, reference_goal):
     # numpy arrays (or lists) with the values for each step of the horizon.
     # For a constant setpoint across the horizon, the value will be the same.
     def tvp_fun(t_now):
-        # This function will be assigned in your ROS node's __init__ to access
+        # This function will be assigned in the ROS node's __init__ to access
         # the node's dynamically updated self.reference_goal.
         # For now, it uses the initial_reference_goal passed to get_mpc.
         for k in range(setup_mpc['n_horizon'] + 1): # +1 because horizon includes current time (t_0 to t_N)
             tvp_template['_tvp', k, 'x_ref'] = reference_goal['x']
             tvp_template['_tvp', k, 'y_ref'] = reference_goal['y']
-            tvp_template['_tvp', k, 'z_ref'] = reference_goal['depth'] # Make sure this matches your model's Z-axis (upwards positive)
+            tvp_template['_tvp', k, 'z_ref'] = reference_goal['depth'] 
             tvp_template['_tvp', k, 'yaw_ref'] = reference_goal['yaw']
             tvp_template['_tvp', k, 'u_ref'] = 0.0 # Target zero velocity in body x
             tvp_template['_tvp', k, 'v_ref'] = 0.0 # Target zero velocity in body y
             tvp_template['_tvp', k, 'w_ref'] = 0.0 # Target zero velocity in body z
             tvp_template['_tvp', k, 'r_ref'] = 0.0 # Target zero yaw rate
-            # If you add bcu_pos_ref to model tvp and need to pass it:
-            # tvp_template['_tvp', k, 'bcu_pos_ref'] = initial_reference_goal['bcu_pos']
         return tvp_template
 
     mpc.set_tvp_fun(tvp_fun) # Assign the initial TVP function

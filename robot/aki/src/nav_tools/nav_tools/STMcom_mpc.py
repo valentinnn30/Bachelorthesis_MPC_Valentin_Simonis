@@ -31,7 +31,6 @@ class STMcommunication(Node):
 
         
         self.declare_parameter("serial_port", "/dev/ttyACM0")
-        #self.declare_parameter("baud_rate", 115200)#baud-rate not clear yet
         self.declare_parameter("baud_rate", 2000000)
 
         #PID
@@ -152,7 +151,6 @@ class STMcommunication(Node):
         Callback to handle the support force (z-direction only).
         """
         self.support_force_z = msg.data
-        #self.get_logger().info(f"Received support force (z): {self.support_force_z}")
 
     def manual_bcu_handler(self, msg):
             x = msg.data
@@ -181,16 +179,11 @@ class STMcommunication(Node):
 
     def spin_callback(self, msg):
         # Update the spin force
-        #self.get_logger().info(f"Spin value: {msg.data}")
         spin_mapped = int((msg.data + 1) * 128.5)
         spin_mapped = max(0, min(255, spin_mapped))
         self.byte17 = spin_mapped
 
     def thruster_callback(self, msg):
-        # Calculate thrust commands using the updated FT_desired
-        #A_pseudo_inv = np.linalg.pinv(self.A)
-        #self.T = A_pseudo_inv @ self.FT_desired
-        #self.T, _ = nnls(self.A, self.FT_desired)
     
         self.T= np.array(msg.data)
 
@@ -214,20 +207,11 @@ class STMcommunication(Node):
         log_msg.data = self.T.tolist()
         self.log_locator_pid_publisher.publish(log_msg)
 
-        # self.byte1 = min(thrust_values[0],self.pump_threshold) #& 0xFF  
-        # self.byte2 = min(thrust_values[1],self.pump_threshold) #& 0xFF
-        # self.byte3 = min(thrust_values[2],self.pump_threshold) #& 0xFF
-        # self.byte4 = min(thrust_values[3],self.pump_threshold) #& 0xFF
-        
+               
         self.byte1 = min(thrust_values[0],self.pump_threshold) #& 0xFF  
         self.byte2 = min(thrust_values[1],self.pump_threshold) #& 0xFF
         self.byte3 = min(thrust_values[3],self.pump_threshold) #& 0xFF
         self.byte4 = min(thrust_values[2],self.pump_threshold) #& 0xFF
-        #self.byte3=0
-        # self.byte1 = 0 
-        # self.byte2 = 0
-        # self.byte3 = 0
-        # self.byte4 = 0
 
 
 
@@ -273,14 +257,8 @@ class STMcommunication(Node):
         
         if self.serial_connection and self.serial_connection.is_open:
             message_bytes = bytes(17)
-            #message_bytes = bytes([self.byte1, self.byte2, self.byte3, self.byte4]) + struct.pack('<HHHH', self.byte5, self.byte6, self.byte7, self.byte8) + bytes([self.byte9])
-            #message_bytes = bytes([self.byte1, self.byte2, self.byte3, self.byte4, self.byte5, self.byte6, self.byte7, self.byte8, self.byte9, self.byte10, self.byte11, self.byte12, self.byte13])
             message_bytes = struct.pack('<BBBBHHHHBBBBBBB', self.byte1, self.byte2, self.byte3, self.byte4, self.byte5, self.byte6, self.byte7, self.byte8, self.byte13, self.byte14, self.byte15, self.byte16, self.byte17, self.byte18, self.byte19)
 
-            # Send over serial
-            """self.serial_connection.write(message_bytes)
-            self.serial_connection.flush()  # Ensure all data is sent
-            self.read_serial_data()"""
             try:
                 self.serial_connection.write(message_bytes)
                 self.serial_connection.flush()
@@ -289,9 +267,7 @@ class STMcommunication(Node):
                 return
             self.read_serial_data()
 
-            #log debug     
-            #self.get_logger().info(f"Message to send (bytes): {message_bytes}")
-            #self.get_logger().info(f"Message sent successfully!")
+
 
             
         else:
@@ -303,17 +279,6 @@ class STMcommunication(Node):
             return
         try:
             line = self.serial_connection.readline().decode('utf-8').strip()
-            
-            """if line.startswith("Sonar Distance:"):
-                try:
-                    # Extract number (e.g., from "Sonar Distance: 345 mm")
-                    mm = int(line.split(":")[1].strip().split()[0])
-                    distance_msg = Float32()
-                    distance_msg.data = mm / 1000.0  # Convert mm to meters
-                    self.publisher_distance.publish(distance_msg)
-                    self.get_logger().info(f"Published sonar distance: {distance_msg.data:.3f} m")
-                except (IndexError, ValueError):
-                    self.get_logger().warn(f"Failed to parse sonar distance from line: {line}")"""
             
             if line.startswith("{"):
                 data = json.loads(line)
@@ -368,13 +333,7 @@ class STMcommunication(Node):
                 # Extract orientation
                 orientation = data["orientation"]
                 ox, oy, oz, ow = orientation["x"], orientation["y"], orientation["z"], orientation["w"]
-                # Extract linear acceleration
-                #linear_acceleration = data["linear_acceleration"]
-                #ax, ay, az = linear_acceleration["x"], linear_acceleration["y"], linear_acceleration["z"]
-                # Extract angular velocity
-                #angular_velocity = data["angular_velocity"]
-                #gx, gy, gz = angular_velocity["x"], angular_velocity["y"], angular_velocity["z"]
-                # Create and populate the IMU message
+               
                 imu_msg = Imu()
                 # Populate the header
                 imu_msg.header.stamp.sec = secs
@@ -385,15 +344,7 @@ class STMcommunication(Node):
                 imu_msg.orientation.y = oy
                 imu_msg.orientation.z = oz
                 imu_msg.orientation.w = ow
-                # Populate linear acceleration
-                #imu_msg.linear_acceleration.x = ax
-                #imu_msg.linear_acceleration.y = ay
-                #imu_msg.linear_acceleration.z = az
-                # Populate angular velocity
-                #imu_msg.angular_velocity.x = gx
-                #imu_msg.angular_velocity.y = gy
-                #imu_msg.angular_velocity.z = gz
-                # Publish the IMU message
+                
                 self.imu_publisher.publish(imu_msg)
 
                 raw_bytes = data.get("raw_bytes", [])
@@ -404,9 +355,6 @@ class STMcommunication(Node):
                     #self.get_logger().warn(f"raw_bytes has unexpected length: {len(raw_bytes)}")
                     nonsense=1
 
-
-                # self.get_logger().info(f"Published depth: {depth_msg.data:.2f} m")
-                # self.get_logger().info(f"Published sonar distance: {distance_msg.data:.3f} m")
 
 
         except json.JSONDecodeError:
