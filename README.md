@@ -14,9 +14,9 @@ The most important information about the mpc-specific files can be found at the 
 - Setuptools-75.6.0 
   - setuptool versin downgrade: python3 -m pip install setuptools==58.0.4
 - Wheel 0.45.1
-- Numpy 2.2.0
-  has to be lower than 2: pip install numpy<2
+- Numpy 1.26.0
 - Pandas 2.2.3
+- Torch>2.0.0
 - pynput
   pip install pynput
 - pyserial 3.5
@@ -47,6 +47,13 @@ The most important information about the mpc-specific files can be found at the 
   - sudo apt-get install ros-humble-nav2-msgs
 - Rosdep
   - colcon build --symlink-install --install-base ./install
+
+## MPC dependencies
+install via pip
+- pip install casadi==3.6.4
+- pip install do-mpc
+
+Get license for MA27 solver at https://licences.stfc.ac.uk/product/coin-hsl
 
 
 # Usage
@@ -92,7 +99,7 @@ cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki/
 
 ### Launching the MPC helper files
 cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki/
-ros2 launch modeling_launch.py
+ros2 launch mpc_testlaunch.py
 
 ### Running the MPC
 cd Bachelorthesis_MPC_Valentin_Simonis/robot/aki/
